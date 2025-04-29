@@ -1,125 +1,122 @@
-def menu_bella_bot():
-    """Menu principal da BellaBot com experiência de conversa melhorada e organização clara"""
-    # Inicializa o histórico com informações do salão
-    global historico_conversa
-    
-    contexto_salao = """
-    O Espaço Diva é um salão de beleza completo com serviços de:
-    - Cabelo: cortes, coloração, tratamentos
-    - Unhas: manicure, pedicure, alongamento
-    - Estética: maquiagem, design de sobrancelhas, massagens
-    
-    Temos três profissionais especializadas: Ana (cabelos), Beatriz (tratamentos) e Carla (unhas).
-    Nossos horários disponíveis são: 10h, 11h, 14h e 16h.
-    """
-    
-    # Reset do histórico para nova conversa
-    historico_conversa = [
-        {"role": "system", "parts": [{"text": f"Você é Bella, uma assistente virtual amigável do salão Espaço Diva. {contexto_salao}"}]}
-    ]
-    
-    # Boas-vindas personalizada
-    boas_vindas = perguntar_gemini("Dê boas-vindas a um cliente novo do salão, apresente-se como assistente virtual Bella e mostre o menu de opções disponíveis de forma amigável.")
-    print(f"\n{boas_vindas}")
-    
-    # Exibe menu de opções estruturado
-    exibir_menu()
-    
-    # Loop principal de conversa
-    while True:
-        # Captura entrada do usuário
-        entrada_usuario = input("\nVocê: ").strip()
-        
-        # Processamento das opções do menu
-        if entrada_usuario.lower() in ['1', 'agendar', 'marcar', 'agendar horário', 'marcar horário']:
-            print("\n✨ Iniciando processo de agendamento ✨")
-            resposta = perguntar_gemini("O cliente escolheu agendar um horário. Confirme que vai iniciar o processo de agendamento e peça o nome completo.")
-            print(resposta)
-            conversa_agendamento()
-            exibir_menu()
-            continue
-            
-        elif entrada_usuario.lower() in ['2', 'dúvidas', 'duvidas', 'sugestoes', 'sugestões', 'informações', 'informacoes']:
-            print("\n📋 Informações e Sugestões 📋")
-            resposta = perguntar_gemini("O cliente deseja informações sobre serviços ou sugestões. Pergunte qual serviço específico gostaria de saber mais detalhes.")
-            print(resposta)
-            pergunta = input("Você: ").strip()
-            prompt = f"O cliente está pedindo informações com a mensagem: '{pergunta}'. Forneça detalhes relevantes sobre os serviços e preços do salão de forma útil."
-            resposta = perguntar_gemini(prompt, temperatura=0.6)
-            print(resposta)
-            exibir_menu()
-            continue
-            
-        elif entrada_usuario.lower() in ['3', 'atendente', 'humano', 'pessoa', 'falar com atendente']:
-            print("\n👩 Transferindo para Atendente Humana 👩")
-            resposta = perguntar_gemini("O cliente deseja falar com uma atendente humana. Informe que vai transferir e peça um telefone para contato.")
-            print(resposta)
-            telefone = input("Você: ")
-            resposta = perguntar_gemini(f"O cliente forneceu o contato: '{telefone}'. Confirme que uma atendente entrará em contato em breve e agradeça pela preferência.")
-            print(resposta)
-            exibir_menu()
-            continue
-            
-        elif entrada_usuario.lower() in ['4', 'sair', 'exit', 'tchau', 'adeus', 'finalizar']:
-            despedida = perguntar_gemini("O cliente deseja encerrar o atendimento. Responda com uma mensagem de despedida calorosa e convide para retornar.")
-            print(despedida)
-            print("\n✨ Atendimento finalizado. Obrigada por utilizar a BellaBot! ✨")
-            break
-            
-        elif entrada_usuario.lower() == 'menu':
-            exibir_menu()
-            continue
-            
-        else:
-            # Analisa a entrada para determinar intenção quando não é comando direto do menu
-            intencao = entender_intencao(entrada_usuario)
-            
-            if intencao == "agendar":
-                print("\n✨ Iniciando processo de agendamento ✨")
-                resposta = perguntar_gemini(f"O cliente disse: '{entrada_usuario}' e quer fazer um agendamento. Confirme que vai iniciar o processo de agendamento e peça o nome completo.")
-                print(resposta)
-                conversa_agendamento()
-            elif intencao == "informacao":
-                prompt = f"O cliente está pedindo informações com a mensagem: '{entrada_usuario}'. Forneça detalhes relevantes sobre os serviços e preços do salão, de forma personalizada e útil."
-                resposta = perguntar_gemini(prompt, temperatura=0.6)
-                print(resposta)
-            elif intencao == "atendente":
-                resposta = perguntar_gemini(f"O cliente disse: '{entrada_usuario}' e parece querer falar com uma atendente humana. Informe que vai transferir para uma atendente e peça um telefone para contato.")
-                print(resposta)
-                telefone = input("Você: ")
-                resposta = perguntar_gemini(f"O cliente forneceu o contato: '{telefone}'. Confirme que uma atendente entrará em contato em breve e agradeça pela preferência.")
-                print(resposta)
-            elif intencao == "sair":
-                despedida = perguntar_gemini(f"O cliente disse: '{entrada_usuario}' e parece estar se despedindo. Responda com uma mensagem de despedida calorosa e convide para retornar.")
-                print(despedida)
-                print("\n✨ Atendimento finalizado. Obrigada por utilizar a BellaBot! ✨")
-                break
-            else:
-                resposta = perguntar_gemini(f"O cliente disse: '{entrada_usuario}'. Responda de forma conversacional, amigável e útil. Ao final, lembre que pode digitar 'menu' para ver as opções.")
-                print(resposta)
-            
-            # Exibe menu após qualquer interação não explícita do menu
-            if intencao != "sair":
-                print("\nDigite 'menu' para ver as opções disponíveis.")
+import requests
+from datetime import datetime
+from dotenv import load_dotenv
+import os
 
-def exibir_menu():
-    """Exibe menu de opções formatado e organizado"""
-    print("\n" + "="*50)
-    print("🌟  MENU ESPAÇO DIVA - Como posso ajudar?  🌟")
-    print("="*50)
-    print("1️⃣  Agendar Horário")
-    print("2️⃣  Dúvidas e Sugestões")
-    print("3️⃣  Falar com Atendente")
-    print("4️⃣  Sair")
-    print("="*50)
+load_dotenv()
+API_KEY = os.getenv("GEMINI_API_KEY")
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
-# Função principal
-if __name__ == "__main__":
+colaboradoras = ["Ana", "Beatriz", "Carla"]
+horarios_disponiveis = ["10:00", "11:00", "14:00", "16:00"]
+
+def horario_comercial():
+    agora = datetime.now()
+    hora = agora.hour
+    return 8 <= hora <= 17
+
+def perguntar_gemini(texto_usuario):
     try:
-        print("\n✨ Iniciando BellaBot - Assistente Virtual do Espaço Diva ✨")
-        menu_bella_bot()
-    except KeyboardInterrupt:
-        print("\n\nAtendimento finalizado. Obrigada por utilizar a BellaBot!")
+        headers = {"Content-Type": "application/json"}
+        data = {
+            "contents": [
+                {
+                    "parts": [{"text": texto_usuario}]
+                }
+            ]
+        }
+        response = requests.post(URL, headers=headers, json=data, timeout=60) 
+        if response.status_code == 200:
+            resposta_json = response.json()
+            return resposta_json['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return "⚠️ Não foi possível obter uma resposta agora."
+    except requests.exceptions.Timeout:
+        return "⚠️ A conexão demorou demais. Tente novamente mais tarde."
     except Exception as e:
-        print(f"\nOcorreu um erro inesperado: {e}")
-        print("Por favor, reinicie o sistema.")
+        return f"⚠️ Ocorreu um erro: {e}"
+
+def salvar_agendamento(nome_cliente, numero_cliente, colaboradora, servico, horario):
+    with open("agendamentos.txt", "a", encoding="utf-8") as arquivo:
+        agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+        arquivo.write(f"{agora} - Cliente: {nome_cliente} - Número: {numero_cliente} - {colaboradora} - {servico} às {horario}\n")
+
+def carregar_agendamentos():
+    horarios_ocupados = []
+    if os.path.exists("agendamentos.txt"):
+        with open("agendamentos.txt", "r", encoding="utf-8") as arquivo:
+            for linha in arquivo:
+                partes = linha.strip().split(" às ")
+                if len(partes) > 1:
+                    horario = partes[1]
+                    horarios_ocupados.append(horario)
+    return horarios_ocupados
+
+def menu_bella_bot():
+    print("\n💬 Olá, eu sou a Bella Bot! ✨ Seja bem-vinda ao nosso salão!")
+    print("O que você deseja fazer hoje?")
+    print("1️⃣ Agendar horário")
+    print("2️⃣ Ver sugestões de serviços")
+    print("3️⃣ Falar com uma atendente")
+    print("0️⃣ Sair")
+
+while True:
+    menu_bella_bot()
+    escolha = input("\nDigite o número da opção desejada: ").strip()
+
+    if escolha == "1":
+        if horario_comercial():
+            resposta = input("Gostaria de agendar um horário? (Sim/Não): ").strip().lower()
+            if resposta == "sim":
+                nome_cliente = input("Qual é o seu nome? ").strip()
+                numero_cliente = input("Qual é o seu número de telefone? ").strip()
+
+                colaboradora = input(f"Com qual colaboradora deseja agendar? Temos: {', '.join(colaboradoras)}: ").strip().title()
+
+                if colaboradora in colaboradoras:
+                    servico = input("Qual serviço você deseja? (ex: cabelo, unha, maquiagem): ").strip()
+
+                    if "não sei" in servico.lower() or "indecisa" in servico.lower():
+                        dica = perguntar_gemini("Sugira serviços de salão de beleza para uma cliente indecisa.")
+                        print("💡 Sugestão para você:", dica)
+
+                    horarios_ocupados = carregar_agendamentos()
+                    horarios_livres = [h for h in horarios_disponiveis if h not in horarios_ocupados]
+
+                    if horarios_livres:
+                        horario = input(f"Escolha um horário disponível: {', '.join(horarios_livres)}: ").strip()
+
+                        if horario in horarios_livres:
+                            print(f"✅ Agendamento confirmado com {colaboradora} para {servico} às {horario}. Obrigada, {nome_cliente}! 💖")
+                            salvar_agendamento(nome_cliente, numero_cliente, colaboradora, servico, horario)
+                        else:
+                            print("⚠️ Desculpe, esse horário não está disponível.")
+                    else:
+                        print("⚠️ Todos os horários de hoje estão ocupados. Tente novamente amanhã!")
+                else:
+                    print("⚠️ Não encontramos essa colaboradora.")
+            else:
+                print("😊 Tudo bem! Quando quiser agendar, estou aqui!")
+        else:
+            print("⏰ Nosso atendimento é das 8h às 17h. Por favor, envie mensagem nesse horário.")
+
+    elif escolha == "2":
+        print("🔎 Buscando sugestões especiais para você...")
+
+        gosto = input("Por favor, compartilhe seu gosto ou preferência para que eu possa sugerir um serviço. (ex: 'meu cabelo está danificado', 'quero algo relaxante', 'quero algo rápido', etc.): ").strip()
+
+        if gosto:
+            sugestao_com_base_no_gosto = perguntar_gemini(f"Com base na preferência da cliente: {gosto}, quais serviços de salão você sugere?")
+            print("✨ Sugestões:", sugestao_com_base_no_gosto)
+        else:
+            print("⚠️ Por favor, forneça um gosto ou preferência para receber sugestões.")
+
+    elif escolha == "3":
+        print("📞 Você será redirecionada para uma atendente. Por favor, aguarde...")
+
+    elif escolha == "0":
+        print("👋 Obrigada por usar a Bella Bot! Até a próxima!")
+        break
+
+    else:
+        print("❌ Opção inválida. Tente novamente.")
