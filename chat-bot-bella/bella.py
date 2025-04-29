@@ -14,22 +14,28 @@ HORARIOS_DISPONIVEIS = ["10:00", "11:00", "14:00", "15:00", "16:00"]
 ARQUIVO_AGENDAMENTOS = "agendamentos.txt"
 NOME_SALAO = "Bella Beauty Salon"
 
-# Personalidade do Bot
+# Personalidade do Bot com restrições explícitas
 INSTRUCOES_PERSONALIDADE = """
-Você é a Bella, a assistente virtual do Bella Beauty Salon, um salão de beleza especializado em cabelos e unhas.
+Você é a Bella, a assistente virtual do Bella Beauty Salon, um salão de beleza especializado APENAS em cabelos e unhas.
 Seu tom deve ser sempre:
 - Acolhedor e caloroso, como uma recepcionista experiente de salão
 - Profissional mas amigável
 - Conhecedor sobre serviços de beleza, cuidados com cabelo e unhas
 - Empático com as necessidades das clientes
 
-Ao sugerir serviços ou responder dúvidas:
-- Mencione os benefícios dos tratamentos
-- Use linguagem que demonstre conhecimento técnico sobre beleza e estética
-- Personalize as sugestões conforme as necessidades específicas da cliente
-- Sempre que possível, mencione os serviços que o Bella Beauty Salon oferece
+RESTRIÇÕES RÍGIDAS:
+- Você DEVE responder APENAS assuntos diretamente relacionados a cabelos e unhas
+- Você DEVE recusar qualquer pergunta fora do contexto de salão de beleza
+- Você DEVE recusar perguntas sobre maquiagem, estética corporal, ou outros serviços não oferecidos
+- Você DEVE recusar perguntas inapropriadas, ofensivas, ou de baixo escalão
+- Você NUNCA deve dar conselhos médicos, apenas sugestões estéticas
+- Você NUNCA deve responder perguntas sobre política, religião, notícias ou temas controversos
+- Você NUNCA deve fornecer dados falsos para agradar ao cliente
 
-Serviços do salão incluem:
+Quando receber uma pergunta fora do escopo, responda educadamente:
+"Desculpe, como assistente especializada do Bella Beauty Salon, posso ajudar apenas com assuntos relacionados a cabelos e unhas. Posso responder sobre nossos serviços de cabelo e manicure/pedicure. Em que posso ajudá-la com esses serviços?"
+
+Serviços do salão LIMITADOS a:
 - Cortes (modernos, clássicos, repicados)
 - Coloração (tintura, mechas, ombré hair, balayage)
 - Tratamentos capilares (hidratação, reconstrução, queratinização)
@@ -37,12 +43,12 @@ Serviços do salão incluem:
 - Manicure e pedicure (simples, decoradas, em gel)
 - Tratamentos para unhas (fortalecimento, alongamento)
 
-Você também possui conhecimento especializado em:
+Você também possui conhecimento especializado APENAS em:
 - Cuidados diários com diferentes tipos de cabelo
 - Tratamentos caseiros para cabelos e unhas
 - Identificação de problemas comuns em cabelos e unhas
 - Dicas de manutenção entre visitas ao salão
-- Produtos recomendados para diferentes necessidades
+- Produtos recomendados para diferentes necessidades de cabelo e unhas
 
 O salão valoriza atendimento personalizado e resultados que realçam a beleza natural de cada cliente.
 Seja sempre prestativa e detalhada ao responder dúvidas sobre cuidados com cabelo e unhas.
@@ -55,9 +61,45 @@ def esta_em_horario_comercial():
     return 8 <= hora_atual <= 24
 
 
-def consultar_gemini(prompt, contexto_conversacional=None):
+def verificar_topico_permitido(texto):
+    """Verifica se o assunto está dentro do escopo permitido (cabelos e unhas)"""
+    # Lista de palavras-chave relacionadas aos serviços permitidos
+    palavras_cabelo = ['cabelo', 'corte', 'tintura', 'coloração', 'mechas', 'penteado', 'alisamento',
+                      'hidratação', 'reconstrução', 'queratina', 'shampoo', 'condicionador', 'tratamento',
+                      'raiz', 'ponta', 'fio', 'volume', 'brilho', 'caspa', 'couro cabeludo', 'secador', 
+                      'chapinha', 'babyliss', 'cachos', 'lisos', 'ondulados', 'crespos', 'loiro', 
+                      'morena', 'ruiva', 'grisalho', 'tinta', 'descoloração', 'escova', 'permanente']
+                      
+    palavras_unhas = ['unha', 'manicure', 'pedicure', 'esmalte', 'cutícula', 'gel', 'alongamento', 
+                      'fibra', 'acrílica', 'nail art', 'francesinha', 'decoração', 'base', 'top coat', 
+                      'acetona', 'lixa', 'alicate', 'fortalecedor', 'quebradiças', 'formato', 'curvatura']
+                      
+    palavras_salao = ['agendar', 'marcar', 'horário', 'serviço', 'atendimento', 'profissional', 'salão', 
+                      'estilista', 'cabeleireiro', 'preço', 'valor', 'duração', 'produto', 'promoção',
+                      'desconto', 'bela', 'bella']
+    
+    # Combina todas as palavras-chave
+    todas_permitidas = palavras_cabelo + palavras_unhas + palavras_salao
+    
+    # Verifica se pelo menos uma palavra-chave está presente no texto
+    texto = texto.lower()
+    for palavra in todas_permitidas:
+        if palavra.lower() in texto:
+            return True
+            
+    # Se nenhuma palavra-chave for encontrada, o assunto está fora do escopo
+    return False
+
+
+def consultar_gemini(prompt, contexto_conversacional=None, verificar_escopo=True):
     """Envia uma consulta para a API do Gemini e retorna a resposta com personalidade"""
     try:
+        # Verifica se o prompt está dentro do escopo, se necessário
+        if verificar_escopo and not verificar_topico_permitido(prompt):
+            return ("Desculpe, como assistente especializada do Bella Beauty Salon, posso ajudar apenas com "
+                   "assuntos relacionados a cabelos e unhas. Posso responder sobre nossos serviços "
+                   "de cabelo e manicure/pedicure. Em que posso ajudá-la com esses serviços?")
+        
         # Combina a personalidade com o prompt específico
         prompt_completo = f"{INSTRUCOES_PERSONALIDADE}\n\nSolicitação da cliente: {prompt}"
         
@@ -113,9 +155,10 @@ def obter_horarios_ocupados():
 def exibir_menu():
     """Exibe o menu principal do bot"""
     print(f"\n💬 Olá, eu sou a Bella! ✨ Seja bem-vinda ao {NOME_SALAO}!")
+    print("Especializada em serviços de cabelo e unhas.")
     print("Como posso ajudar você hoje?")
     print("1️⃣ Agendar horário")
-    print("2️⃣ Sugestões e dúvidas sobre serviços")
+    print("2️⃣ Sugestões e dúvidas sobre cabelos e unhas")
     print("3️⃣ Falar com uma atendente")
     print("0️⃣ Sair")
 
@@ -165,15 +208,31 @@ def processar_agendamento():
         print("⚠️ Não encontramos essa profissional em nossa equipe.")
         return
         
-    # Seleciona serviço
-    servico = input("Qual serviço você deseja? (ex: corte, coloração, manicure): ").strip()
-    if "não sei" in servico.lower() or "indecisa" in servico.lower():
-        dica = consultar_gemini(
-            "Uma cliente está indecisa sobre qual serviço escolher. Sugira 3 opções populares de serviços, explicando brevemente os benefícios de cada um.",
-            f"Cliente: {nome_cliente}"
-        )
-        print("\n💡 Sugestões para você:\n", dica)
-        servico = input("\nQual serviço você gostaria de agendar? ").strip()
+    # Seleciona serviço com verificação de escopo
+    while True:
+        servico = input("Qual serviço você deseja? (Somente serviços de cabelo ou unhas): ").strip()
+        
+        # Verifica se o serviço está no escopo permitido
+        if not verificar_topico_permitido(servico):
+            print("⚠️ Desculpe, nosso salão oferece apenas serviços de cabelo e unhas.")
+            continue
+            
+        if "não sei" in servico.lower() or "indecisa" in servico.lower():
+            dica = consultar_gemini(
+                "Uma cliente está indecisa sobre qual serviço escolher entre cabelo e unhas. Sugira 3 opções populares de serviços, explicando brevemente os benefícios de cada um.",
+                f"Cliente: {nome_cliente}",
+                verificar_escopo=False
+            )
+            print("\n💡 Sugestões para você:\n", dica)
+            servico = input("\nQual serviço você gostaria de agendar? ").strip()
+            
+            # Verifica novamente se o serviço escolhido está no escopo
+            if not verificar_topico_permitido(servico):
+                print("⚠️ Desculpe, nosso salão oferece apenas serviços de cabelo e unhas.")
+                continue
+        
+        # Se chegou aqui, o serviço está no escopo
+        break
     
     # Verifica horários disponíveis
     horarios_ocupados = obter_horarios_ocupados()
@@ -192,7 +251,8 @@ def processar_agendamento():
     # Mensagem personalizada de confirmação via Gemini
     confirmacao = consultar_gemini(
         f"Crie uma mensagem de confirmação de agendamento entusiasmada e personalizada para uma cliente chamada {nome_cliente} que agendou {servico} com {colaboradora} às {horario}. Mantenha a mensagem curta e amigável.",
-        f"Cliente: {nome_cliente}, Serviço: {servico}"
+        f"Cliente: {nome_cliente}, Serviço: {servico}",
+        verificar_escopo=False
     )
     
     print(f"\n✅ {confirmacao}")
@@ -200,7 +260,7 @@ def processar_agendamento():
 
 def sugestoes_e_duvidas():
     """Função unificada para lidar com sugestões e dúvidas"""
-    print("\n🌟 Como posso ajudar você hoje?")
+    print("\n🌟 Como posso ajudar você com cabelos e unhas hoje?")
     print("1. Sugestões de serviços para você")
     print("2. Tirar dúvidas sobre serviços e cuidados")
     print("0. Voltar ao menu principal")
@@ -221,18 +281,24 @@ def obter_sugestoes():
     """Solicita sugestões de serviços com base nas preferências do cliente"""
     print("🔎 Vamos encontrar o serviço perfeito para você...")
     
-    gosto = input("Por favor, conte-me um pouco sobre o que você está procurando ou sua situação atual "
-                 "(ex: 'meu cabelo está danificado', 'quero algo para uma festa', 'minhas unhas quebram facilmente'): ").strip()
+    gosto = input("Por favor, conte-me um pouco sobre o que você está procurando para cabelo ou unhas "
+                 "(ex: 'meu cabelo está danificado', 'minhas unhas quebram facilmente'): ").strip()
     
     if not gosto:
         print("⚠️ Para que eu possa sugerir o melhor serviço, preciso saber um pouco mais sobre o que você procura.")
         return
+    
+    # Verifica se o tema está dentro do escopo
+    if not verificar_topico_permitido(gosto):
+        print("⚠️ Desculpe, como assistente especializada do Bella Beauty Salon, posso ajudar apenas com "
+              "assuntos relacionados a cabelos e unhas. Poderia reformular sua pergunta?")
+        return
         
     prompt = f"Uma cliente do salão de beleza compartilhou a seguinte necessidade/situação: '{gosto}'. " \
-             f"Sugira 2-3 serviços específicos do nosso salão que seriam ideais para ela, explicando brevemente por que cada um " \
+             f"Sugira 2-3 serviços específicos do nosso salão (APENAS para cabelo ou unhas) que seriam ideais para ela, explicando brevemente por que cada um " \
              f"seria benéfico no caso dela. Seja específica, acolhedora e demonstre conhecimento técnico de beleza."
     
-    sugestao = consultar_gemini(prompt)
+    sugestao = consultar_gemini(prompt, verificar_escopo=False)
     print("\n✨ Recomendações personalizadas para você:\n", sugestao)
 
 
@@ -240,31 +306,44 @@ def responder_duvidas():
     """Responde às dúvidas da cliente sobre os serviços e cuidados com cabelo/unhas"""
     print("❓ Em que posso ajudar? Sou especialista em cuidados com cabelo e unhas!")
     
-    duvida = input("Qual é a sua dúvida? Pode perguntar sobre nossos serviços, cuidados com cabelo, cuidados com unhas, ou qualquer outra questão relacionada à beleza: ").strip()
+    duvida = input("Qual é a sua dúvida sobre cabelo ou unhas? ").strip()
     
     if not duvida:
         print("⚠️ Por favor, faça sua pergunta para que eu possa ajudar.")
         return
     
+    # Verifica se a dúvida está dentro do escopo
+    if not verificar_topico_permitido(duvida):
+        print("⚠️ Desculpe, como assistente especializada do Bella Beauty Salon, posso ajudar apenas com "
+              "assuntos relacionados a cabelos e unhas. Poderia reformular sua pergunta?")
+        return
+    
     prompt = f"Uma cliente do salão de beleza tem a seguinte dúvida: '{duvida}'. " \
              f"Responda de forma completa, educada e informativa, demonstrando conhecimento técnico sobre tratamentos " \
              f"de beleza e cuidados com cabelo e unhas. Use linguagem acessível, mas técnica quando necessário. " \
-             f"Forneça informações práticas e úteis. Se apropriado, sugira serviços do nosso salão que possam " \
-             f"ajudar com a questão dela ou produtos para uso em casa."
+             f"Forneça informações práticas e úteis. APENAS sugira serviços do nosso salão relacionados a cabelo e unhas " \
+             f"que possam ajudar com a questão dela ou produtos para uso em casa."
     
-    resposta = consultar_gemini(prompt)
+    resposta = consultar_gemini(prompt, verificar_escopo=False)
     print("\n📝 Resposta:", resposta)
     
     # Pergunta se a resposta foi útil
     util = input("\nEssa resposta foi útil para você? (Sim/Não): ").strip().lower()
     if util != "sim":
-        mais_info = input("Por favor, me conte mais detalhes para que eu possa ajudar melhor: ").strip()
+        mais_info = input("Por favor, me conte mais detalhes sobre sua dúvida de cabelo ou unhas para que eu possa ajudar melhor: ").strip()
+        
+        # Verifica novamente se está dentro do escopo
+        if not verificar_topico_permitido(mais_info):
+            print("⚠️ Desculpe, como assistente especializada do Bella Beauty Salon, posso ajudar apenas com "
+                  "assuntos relacionados a cabelos e unhas. Poderia reformular sua pergunta?")
+            return
+            
         if mais_info:
             contexto = f"A cliente não ficou satisfeita com a resposta anterior sobre: '{duvida}'. " \
                       f"Ela adicionou as seguintes informações: '{mais_info}'. " \
                       f"Por favor, forneça uma resposta mais direcionada e específica, usando seu conhecimento especializado em cuidados com cabelo e unhas."
             
-            nova_resposta = consultar_gemini(contexto)
+            nova_resposta = consultar_gemini(contexto, verificar_escopo=False)
             print("\n📝 Resposta atualizada:", nova_resposta)
 
 
@@ -281,7 +360,10 @@ def main():
         elif escolha == "3":
             print("📞 Você será redirecionada para uma atendente humana. Por favor, aguarde um momento...")
         elif escolha == "0":
-            mensagem_despedida = consultar_gemini("Crie uma mensagem de despedida calorosa e breve para uma cliente do salão de beleza que está encerrando a conversa.")
+            mensagem_despedida = consultar_gemini(
+                "Crie uma mensagem de despedida calorosa e breve para uma cliente do salão de beleza que está encerrando a conversa.",
+                verificar_escopo=False
+            )
             print(f"\n👋 {mensagem_despedida}")
             break
         else:
