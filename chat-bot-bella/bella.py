@@ -266,12 +266,12 @@ def interpretar_mensagem(msg):
 def ouvir_mensagens(id_sessao):
     sio = socketio.Client()
     estados = {}
+    global tentativas_reconexao
     tentativas_reconexao = 0 # Inicializa tentativas_reconexao aqui
     max_tentativas = 5
 
     @sio.event
     def connect():
-        global tentativas_reconexao # <-- MOVIDO PARA O INÍCIO
         print(f"[{datetime.now()}] ✅ Bot conectado à sessão {id_sessao}")
         tentativas_reconexao = 0 # Resetar tentativas ao conectar
 
@@ -281,7 +281,6 @@ def ouvir_mensagens(id_sessao):
 
     @sio.event
     def disconnect():
-        global tentativas_reconexao # <-- MOVIDO PARA O INÍCIO
         tentativas_reconexao += 1
         print(f"[{datetime.now()}] ⚠ Desconectado. Tentativa {tentativas_reconexao}/{max_tentativas}")
 
@@ -642,10 +641,15 @@ def ouvir_mensagens(id_sessao):
                            if horarios_livres:
                                 data_formatada = datetime.strptime(data_agenda, '%Y-%m-%d').strftime('%d/%m/%Y')
                                 resposta = f"Para {servico} com {colaboradora} em {data_formatada}, temos estes horários disponíveis:\n\n"
-                                resposta += ", ".join(horarios_livres)
-                                resposta += "\n\nQual horário prefere? Digite 'menu' para voltar."
+                                # Cria um dicionário para mapear números aos horários
+                                horarios_numerados = {str(i+1): h for i, h in enumerate(horarios_livres)}
+                                # Exibe os horários numerados
+                                for num, horario in horarios_numerados.items():
+                                    resposta += f"{num} - {horario}\n"
+                                resposta += "\nDigite o número do horário desejado. Digite 'menu' para voltar."
 
                                 estados[numero]["horarios_livres"] = horarios_livres
+                                estados[numero]["horarios_numerados"] = horarios_numerados
                                 estados[numero]["data_agenda"] = data_agenda
                                 estados[numero]["etapa"] = "horario"
                            else:
@@ -656,10 +660,15 @@ def ouvir_mensagens(id_sessao):
 
                                 data_formatada = datetime.strptime(data_agenda, '%Y-%m-%d').strftime('%d/%m/%Y')
                                 resposta = f"Para amanhã, a agenda da {colaboradora} está completa. Para {data_formatada}, temos:\n\n"
-                                resposta += ", ".join(horarios_livres)
-                                resposta += "\n\nEscolha um horário ou digite 'outro dia' para verificar outras datas, ou digite 'menu' para voltar."
+                                # Cria um dicionário para mapear números aos horários
+                                horarios_numerados = {str(i+1): h for i, h in enumerate(horarios_livres)}
+                                # Exibe os horários numerados
+                                for num, horario in horarios_numerados.items():
+                                    resposta += f"{num} - {horario}\n"
+                                resposta += "\nDigite o número do horário desejado. Digite 'outro dia' para verificar outras datas, ou digite 'menu' para voltar."
 
                                 estados[numero]["horarios_livres"] = horarios_livres
+                                estados[numero]["horarios_numerados"] = horarios_numerados
                                 estados[numero]["data_agenda"] = data_agenda
                                 estados[numero]["etapa"] = "horario"
 
@@ -687,57 +696,58 @@ def ouvir_mensagens(id_sessao):
 
                          data_formatada = datetime.strptime(data_agenda, '%Y-%m-%d').strftime('%d/%m/%Y')
                          resposta = f"Para {data_formatada}, temos os seguintes horários:\n\n"
-                         resposta += ", ".join(horarios_livres)
-                         resposta += "\n\nQual horário prefere? Digite 'outro dia' para verificar outras datas ou 'menu' para voltar."
+                         # Cria um dicionário para mapear números aos horários
+                         horarios_numerados = {str(i+1): h for i, h in enumerate(horarios_livres)}
+                         # Exibe os horários numerados
+                         for num, horario in horarios_numerados.items():
+                             resposta += f"{num} - {horario}\n"
+                         resposta += "\nDigite o número do horário desejado. Digite 'outro dia' para verificar outras datas ou 'menu' para voltar."
 
                          estados[numero]["horarios_livres"] = horarios_livres
+                         estados[numero]["horarios_numerados"] = horarios_numerados
                          estados[numero]["data_agenda"] = data_agenda
                          # Mantém a mesma etapa
 
-                     elif escolha in [h.lower() for h in estados[numero]["horarios_livres"]]:
-                         horario = None # Inicializa horario
-                         for h in estados[numero]["horarios_livres"]:
-                              if h.lower() == escolha:
-                                   horario = h
-                                   break
+                     elif escolha in estados[numero]["horarios_numerados"]:
+                         horario = estados[numero]["horarios_numerados"][escolha]
 
-                         if horario: # Confirma que encontrou o horário
-                             dados = estados[numero]
-                             data_agendada = salvar_agendamento(
-                                  numero,
-                                  dados["nome"],
-                                  dados["colaboradora"],
-                                  dados["servico"],
-                                  horario,
-                                  dados["data_agenda"]
-                             )
+                         dados = estados[numero]
+                         data_agendada = salvar_agendamento(
+                              numero,
+                              dados["nome"],
+                              dados["colaboradora"],
+                              dados["servico"],
+                              horario,
+                              dados["data_agenda"]
+                         )
 
-                             data_formatada = datetime.strptime(data_agendada, '%Y-%m-%d').strftime('%d/%m/%Y')
+                         data_formatada = datetime.strptime(data_agendada, '%Y-%m-%d').strftime('%d/%m/%Y')
 
-                             servico_confirmado = dados["servico"].lower()
-                             if "unha" in servico_confirmado or "manicure" in servico_confirmado or "pedicure" in servico_confirmado:
-                                  dica_adicional = "Lembre-se de vir com as unhas limpas, sem esmalte anterior para melhores resultados! 💅"
-                             elif "cabelo" in servico_confirmado or "corte" in servico_confirmado or "hidrat" in servico_confirmado:
-                                  dica_adicional = "Recomendamos vir com o cabelo lavado apenas se for corte. Para outros procedimentos, o ideal é vir com o cabelo natural. 👩‍🦰"
-                             else:
-                                  dica_adicional = "Estamos ansiosas para te receber! ✨"
-
-                             resposta = (
-                                  f"✅ Agendamento confirmado!\n\n"
-                                  f"• Data: {data_formatada}\n"
-                                  f"• Horário: {horario}\n"
-                                  f"• Serviço: {dados['servico']}\n"
-                                  f"• Profissional: {dados['colaboradora']}\n\n"
-                                  f"{dica_adicional}\n\n"
-                                  f"Aguardamos você, {dados['nome']}! Caso precise remarcar, é só enviar 'cancelar agendamento'. 💖\nDigite 'menu' para voltar."
-                             )
-
-                             estados[numero] = {"etapa": None, "ultima_interacao": datetime.now()} # Reseta o estado e registra a interação
+                         servico_confirmado = dados["servico"].lower()
+                         if "unha" in servico_confirmado or "manicure" in servico_confirmado or "pedicure" in servico_confirmado:
+                              dica_adicional = "Lembre-se de vir com as unhas limpas, sem esmalte anterior para melhores resultados! 💅"
+                         elif "cabelo" in servico_confirmado or "corte" in servico_confirmado or "hidrat" in servico_confirmado:
+                              dica_adicional = "Recomendamos vir com o cabelo lavado apenas se for corte. Para outros procedimentos, o ideal é vir com o cabelo natural. 👩‍🦰"
                          else:
-                             resposta = f"⚠ Horário inválido ou não disponível. Por favor, escolha entre: {', '.join(estados[numero]['horarios_livres'])}\nDigite 'outro dia' para verificar outras datas ou 'menu' para voltar."
+                              dica_adicional = "Estamos ansiosas para te receber! ✨"
 
+                         resposta = (
+                              f"✅ Agendamento confirmado!\n\n"
+                              f"• Data: {data_formatada}\n"
+                              f"• Horário: {horario}\n"
+                              f"• Serviço: {dados['servico']}\n"
+                              f"• Profissional: {dados['colaboradora']}\n\n"
+                              f"{dica_adicional}\n\n"
+                              f"Aguardamos você, {dados['nome']}! Caso precise remarcar, é só enviar 'cancelar agendamento'. 💖\nDigite 'menu' para voltar."
+                         )
+
+                         estados[numero] = {"etapa": None, "ultima_interacao": datetime.now()} # Reseta o estado e registra a interação
                      else:
-                         resposta = f"⚠ Horário inválido ou não disponível. Por favor, escolha entre: {', '.join(estados[numero]['horarios_livres'])}\nDigite 'outro dia' para verificar outras datas ou 'menu' para voltar."
+                         horarios_numerados = estados[numero]["horarios_numerados"]
+                         resposta = f"⚠ Opção inválida. Por favor, escolha um número entre 1 e {len(horarios_numerados)}.\n\n"
+                         for num, horario in horarios_numerados.items():
+                             resposta += f"{num} - {horario}\n"
+                         resposta += "\nDigite 'outro dia' para verificar outras datas ou 'menu' para voltar."
 
 
         # Envia e salva a mensagem
@@ -757,7 +767,6 @@ def ouvir_mensagens(id_sessao):
     except Exception as e:
         print(f"[{datetime.now()}] ❌ Erro inesperado ao iniciar Socket.IO: {e}")
         # Em caso de erro não tratado na conexão inicial, tenta reconectar
-        global tentativas__reconexao
         if tentativas_reconexao <= max_tentativas:
              print(f"[{datetime.now()}] Tentando reconectar em 5 segundos...")
              time.sleep(5)
